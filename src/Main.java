@@ -1,6 +1,6 @@
 import java.util.Scanner;
 
-public class Main {
+class Main {
     public static void main(String[] args) {
         TwoThreeTree tree = new TwoThreeTree();
         Scanner scanner = new Scanner(System.in);
@@ -42,7 +42,7 @@ public class Main {
                         int insertValue = Integer.parseInt(parts[1]);
                         tree.insert(insertValue);
                         System.out.println("Inserted " + insertValue);
-                        tree.printTreeHorizontal();
+                        System.out.println(tree.getTreeString());  // Updated to use getTreeString
                         break;
 
                     case "delete":
@@ -52,8 +52,7 @@ public class Main {
                         }
                         int deleteValue = Integer.parseInt(parts[1]);
                         tree.delete(deleteValue);
-                        System.out.println("Deleted " + deleteValue);
-                        tree.printTreeHorizontal();
+                        System.out.println(tree.getTreeString());  // Updated to use getTreeString
                         break;
 
                     case "search":
@@ -67,7 +66,7 @@ public class Main {
                         break;
 
                     case "print":
-                        tree.printTreeHorizontal();
+                        System.out.println(tree.getTreeString());  // Updated to use getTreeString
                         break;
 
                     default:
@@ -80,7 +79,6 @@ public class Main {
                 System.out.println("An error occurred: " + e.getMessage());
             }
         }
-
         scanner.close();
     }
 }

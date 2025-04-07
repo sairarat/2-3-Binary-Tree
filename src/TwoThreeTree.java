@@ -1,199 +1,282 @@
-import java.util.Scanner;
+import java.util.ArrayList;
 
 public class TwoThreeTree {
     private Node root;
 
-    // Node class for 2-3 tree
-    private class Node {
-        int leftValue, rightValue;
-        Node left, middle, right;
-        boolean isThreeNode;
+    public class Node {
+        ArrayList<Integer> keys;
+        ArrayList<Node> children;
+        boolean isLeaf;
 
-        Node(int value) {
-            leftValue = value;
-            isThreeNode = false;
-            left = middle = right = null;
+        public Node(boolean isLeaf) {
+            this.keys = new ArrayList<>();
+            this.children = new ArrayList<>();
+            this.isLeaf = isLeaf;
+        }
+
+        // Getter methods for Node
+        public ArrayList<Integer> getKeys() {
+            return keys;
+        }
+
+        public ArrayList<Node> getChildren() {
+            return children;
+        }
+
+        public boolean isLeaf() {
+            return isLeaf;
         }
     }
 
     public TwoThreeTree() {
-        root = null;
+        root = new Node(true);
     }
 
-    // Search operation
-    public boolean search(int value) {
-        return search(root, value);
+    // Getter for root
+    public Node getRoot() {
+        return root;
     }
 
-    private boolean search(Node node, int value) {
+    // Insert a key into the tree
+    public void insert(int key) {
+        if (root.keys.size() == 3) {
+            Node newRoot = new Node(false);
+            newRoot.children.add(root);
+            splitChild(newRoot, 0);
+            root = newRoot;
+        }
+        insertNonFull(root, key);
+    }
+
+    private void insertNonFull(Node node, int key) {
+        int i = node.keys.size() - 1;
+
+        if (node.isLeaf) {
+            while (i >= 0 && key < node.keys.get(i)) {
+                i--;
+            }
+            node.keys.add(i + 1, key);
+
+            if (node.keys.size() > 2) {
+                if (node == root) {
+                    Node newRoot = new Node(false);
+                    newRoot.children.add(root);
+                    splitChild(newRoot, 0);
+                    root = newRoot;
+                } else {
+                    Node parent = findParent(root, node);
+                    int index = parent.children.indexOf(node);
+                    splitChild(parent, index);
+                }
+            }
+        } else {
+            while (i >= 0 && key < node.keys.get(i)) {
+                i--;
+            }
+            i++;
+            Node child = node.children.get(i);
+
+            if (child.keys.size() == 3) {
+                splitChild(node, i);
+                if (key > node.keys.get(i)) {
+                    i++;
+                }
+                child = node.children.get(i);
+            }
+            insertNonFull(child, key);
+        }
+    }
+
+    private void splitChild(Node parent, int index) {
+        Node child = parent.children.get(index);
+        Node newNode = new Node(child.isLeaf);
+
+        int middleKey = child.keys.get(1);
+        parent.keys.add(index, middleKey);
+
+        newNode.keys.add(child.keys.get(2));
+        child.keys.remove(2);
+        child.keys.remove(1);
+
+        if (!child.isLeaf) {
+            newNode.children.add(child.children.get(2));
+            newNode.children.add(child.children.get(3));
+            child.children.remove(3);
+            child.children.remove(2);
+        }
+
+        parent.children.add(index + 1, newNode);
+
+        if (parent.keys.size() > 2) {
+            if (parent == root) {
+                Node newRoot = new Node(false);
+                newRoot.children.add(root);
+                splitChild(newRoot, 0);
+                root = newRoot;
+            } else {
+                Node grandParent = findParent(root, parent);
+                int parentIndex = grandParent.children.indexOf(parent);
+                splitChild(grandParent, parentIndex);
+            }
+        }
+    }
+
+    public boolean search(int key) {
+        return searchKey(root, key);
+    }
+
+    private boolean searchKey(Node node, int key) {
         if (node == null) return false;
 
-        if (!node.isThreeNode) {
-            if (node.leftValue == value) return true;
-            if (value < node.leftValue) return search(node.left, value);
-            return search(node.right, value);
-        } else {
-            if (node.leftValue == value || node.rightValue == value) return true;
-            if (value < node.leftValue) return search(node.left, value);
-            if (value < node.rightValue) return search(node.middle, value);
-            return search(node.right, value);
+        int i = 0;
+        while (i < node.keys.size() && key > node.keys.get(i)) {
+            i++;
         }
+
+        if (i < node.keys.size() && key == node.keys.get(i)) {
+            return true;
+        }
+
+        if (node.isLeaf) {
+            return false;
+        }
+
+        return searchKey(node.children.get(i), key);
     }
 
-    // Insert operation
-    public void insert(int value) {
-        if (root == null) {
-            root = new Node(value);
+    public void delete(int key) {
+        if (!search(key)) {
+            System.out.println("Key " + key + " not found in the tree.");
             return;
         }
-        root = insert(root, value);
+        deleteKey(root, key);
+        if (root.keys.isEmpty() && !root.isLeaf) {
+            root = root.children.get(0);
+        }
     }
 
-    private Node insert(Node node, int value) {
-        // If we're at a leaf node
-        if (node.left == null && node.right == null) {
-            if (!node.isThreeNode) {
-                if (value < node.leftValue) {
-                    node.rightValue = node.leftValue;
-                    node.leftValue = value;
-                } else {
-                    node.rightValue = value;
+    private void deleteKey(Node node, int key) {
+        int i = 0;
+        while (i < node.keys.size() && key > node.keys.get(i)) {
+            i++;
+        }
+
+        if (i < node.keys.size() && node.keys.get(i) == key) {
+            if (node.isLeaf) {
+                node.keys.remove(i);
+                if (node != root && node.keys.size() < 1) {
+                    fixUnderflow(findParent(root, node), node);
                 }
-                node.isThreeNode = true;
-                return node;
             } else {
-                // Split the node
-                return splitNode(node, value);
-            }
-        }
-
-        // Recurse to find insertion point
-        if (!node.isThreeNode) {
-            if (value < node.leftValue) {
-                node.left = insert(node.left, value);
-            } else {
-                node.right = insert(node.right, value);
-            }
-        } else {
-            if (value < node.leftValue) {
-                node.left = insert(node.left, value);
-            } else if (value < node.rightValue) {
-                node.middle = insert(node.middle, value);
-            } else {
-                node.right = insert(node.right, value);
-            }
-        }
-        return node;
-    }
-
-    private Node splitNode(Node node, int value) {
-        int midValue;
-        Node leftChild = new Node(Math.min(Math.min(node.leftValue, node.rightValue), value));
-        Node rightChild = new Node(Math.max(Math.max(node.leftValue, node.rightValue), value));
-        midValue = Math.min(Math.max(node.leftValue, node.rightValue),
-                Math.max(Math.min(node.leftValue, node.rightValue), value));
-
-        Node newParent = new Node(midValue);
-        newParent.left = leftChild;
-        newParent.right = rightChild;
-        return newParent;
-    }
-
-    // Delete operation
-    public void delete(int value) {
-        if (root == null) return;
-        root = delete(root, value);
-    }
-
-    private Node delete(Node node, int value) {
-        if (node == null) return null;
-
-        // Leaf node cases
-        if (node.left == null && node.right == null) {
-            if (!node.isThreeNode) {
-                if (node.leftValue == value) return null;
-                return node;
-            } else {
-                if (node.leftValue == value) {
-                    node.leftValue = node.rightValue;
-                    node.isThreeNode = false;
-                    return node;
-                } else if (node.rightValue == value) {
-                    node.isThreeNode = false;
-                    return node;
+                Node predNode = node.children.get(i);
+                while (!predNode.isLeaf) {
+                    predNode = predNode.children.get(predNode.children.size() - 1);
                 }
-                return node;
-            }
-        }
-
-        // Internal node cases
-        if (!node.isThreeNode) {
-            if (value < node.leftValue) {
-                node.left = delete(node.left, value);
-            } else {
-                node.right = delete(node.right, value);
+                int predKey = predNode.keys.get(predNode.keys.size() - 1);
+                node.keys.set(i, predKey);
+                deleteKey(node.children.get(i), predKey);
             }
         } else {
-            if (value < node.leftValue) {
-                node.left = delete(node.left, value);
-            } else if (value < node.rightValue) {
-                node.middle = delete(node.middle, value);
-            } else {
-                node.right = delete(node.right, value);
+            Node child = node.children.get(i);
+            if (child.keys.size() == 1 && child != root) {
+                fixUnderflow(node, child);
+                i = 0;
+                while (i < node.keys.size() && key > node.keys.get(i)) {
+                    i++;
+                }
+            }
+            deleteKey(node.children.get(i), key);
+        }
+    }
+
+    private Node findParent(Node current, Node child) {
+        if (current == null || current.isLeaf) return null;
+        for (int i = 0; i < current.children.size(); i++) {
+            if (current.children.get(i) == child) {
+                return current;
+            }
+            Node found = findParent(current.children.get(i), child);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private void fixUnderflow(Node parent, Node child) {
+        if (parent == null) return;
+
+        int index = parent.children.indexOf(child);
+
+        if (index > 0 && parent.children.get(index - 1).keys.size() > 1) {
+            Node leftSibling = parent.children.get(index - 1);
+            child.keys.add(0, parent.keys.get(index - 1));
+            parent.keys.set(index - 1, leftSibling.keys.remove(leftSibling.keys.size() - 1));
+            if (!child.isLeaf) {
+                child.children.add(0, leftSibling.children.remove(leftSibling.children.size() - 1));
             }
         }
-        return balance(node);
-    }
-
-    private Node balance(Node node) {
-        // Basic balancing - more complex cases would need additional logic
-        if (node.left == null && node.right != null) {
-            if (!node.isThreeNode) {
-                node.leftValue = node.right.leftValue;
-                node.left = node.right.left;
-                node.right = node.right.right;
+        else if (index < parent.children.size() - 1 && parent.children.get(index + 1).keys.size() > 1) {
+            Node rightSibling = parent.children.get(index + 1);
+            child.keys.add(parent.keys.get(index));
+            parent.keys.set(index, rightSibling.keys.remove(0));
+            if (!child.isLeaf) {
+                child.children.add(rightSibling.children.remove(0));
             }
         }
-        return node;
+        else if (index > 0) {
+            Node leftSibling = parent.children.get(index - 1);
+            leftSibling.keys.add(parent.keys.remove(index - 1));
+            leftSibling.keys.addAll(child.keys);
+            leftSibling.children.addAll(child.children);
+            parent.children.remove(index);
+            if (parent != root && parent.keys.size() < 1) {
+                fixUnderflow(findParent(root, parent), parent);
+            }
+        }
+        else {
+            Node rightSibling = parent.children.get(index + 1);
+            child.keys.add(parent.keys.remove(index));
+            child.keys.addAll(rightSibling.keys);
+            child.children.addAll(rightSibling.children);
+            parent.children.remove(index + 1);
+            if (parent != root && parent.keys.size() < 1) {
+                fixUnderflow(findParent(root, parent), parent);
+            }
+        }
     }
 
-    // Method to print tree horizontally with a style similar to the image
-    public void printTreeHorizontal() {
-        if (root == null) {
-            System.out.println("Tree is empty");
-            return;
+    public String getTreeString() {
+        if (root == null || (root.keys.isEmpty() && root.isLeaf)) {
+            return "Tree is empty";
         }
-        System.out.println("Horizontal 2-3 Tree (root on left):");
-        printTreeHorizontal(root, "", true);
+        StringBuilder sb = new StringBuilder();
+        sb.append("Vertical 2-3 Tree (root at top):\n");
+        buildTreeString(root, 0, "", true, sb);
+        return sb.toString();
     }
 
-    private void printTreeHorizontal(Node node, String prefix, boolean isRoot) {
-        if (node == null) return;
+    private void buildTreeString(Node node, int level, String prefix, boolean isLast, StringBuilder sb) {
+        if (node == null || node.keys.isEmpty()) return;
 
-        // Format the node as [value] for 2-node or [value1 value2] for 3-node
-        String nodeStr = node.isThreeNode ?
-                "[" + node.leftValue + " " + node.rightValue + "]" :
-                "[" + node.leftValue + "]";
-
-        // Print the current node
-        if (isRoot) {
-            System.out.println(nodeStr);
-        } else {
-            System.out.println(prefix + "└──>" + nodeStr);
+        for (int i = 0; i < level - 1; i++) {
+            sb.append(prefix.charAt(i) == '|' ? "|   " : "    ");
+        }
+        if (level > 0) {
+            sb.append(isLast ? "└── " : "├── ");
         }
 
-        // Prepare prefix for children
-        String newPrefix = isRoot ? "" : prefix + "    ";
+        sb.append("[");
+        for (int i = 0; i < node.keys.size(); i++) {
+            sb.append(node.keys.get(i));
+            if (i < node.keys.size() - 1) sb.append(" ");
+        }
+        sb.append("]\n");
 
-        // Print children with arrows
-        if (node.left != null) {
-            printTreeHorizontal(node.left, newPrefix, false);
-        }
-        if (node.isThreeNode && node.middle != null) {
-            printTreeHorizontal(node.middle, newPrefix, false);
-        }
-        if (node.right != null) {
-            printTreeHorizontal(node.right, newPrefix, false);
+        String newPrefix = prefix + (isLast ? " " : "|");
+
+        if (!node.isLeaf) {
+            for (int i = node.children.size() - 1; i >= 0; i--) {
+                buildTreeString(node.children.get(i), level + 1, newPrefix, i == node.children.size() - 1, sb);
+            }
         }
     }
 }
